@@ -10,9 +10,7 @@ from torchvision import transforms
 import torchvision.utils as vutils
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader
-from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
-import numpy as np
+
 
 class VAEXperiment(pl.LightningModule):
 
@@ -69,7 +67,6 @@ class VAEXperiment(pl.LightningModule):
         self.log('val_mean', mean, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log('val_std', std, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-
         
     def on_validation_end(self) -> None:
         self.sample_images()
@@ -100,7 +97,6 @@ class VAEXperiment(pl.LightningModule):
         scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=labels, cmap='viridis', alpha=0.5)
         plt.colorbar(scatter)
         plt.show()
-
         
     def sample_images(self):
         # Get sample reconstruction image            
