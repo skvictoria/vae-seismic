@@ -56,6 +56,17 @@ class VAEXperiment(pl.LightningModule):
                                             batch_idx = batch_idx)
 
         self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
+        # Generate images (assuming these are the segmentation results)
+        recons = self.model.generate(real_img, labels=labels).to(self.curr_device)
+        
+        # Calculate mean and std of the generated images
+        mean = torch.mean(recons.float())
+        std = torch.std(recons.float())
+
+        # Log the computed mean and standard deviation
+        self.log('val_mean', mean, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_std', std, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
 
         
     def on_validation_end(self) -> None:
