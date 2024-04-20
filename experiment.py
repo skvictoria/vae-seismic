@@ -10,7 +10,9 @@ from torchvision import transforms
 import torchvision.utils as vutils
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader
-
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+import numpy as np
 
 class VAEXperiment(pl.LightningModule):
 
@@ -71,6 +73,34 @@ class VAEXperiment(pl.LightningModule):
         
     def on_validation_end(self) -> None:
         self.sample_images()
+        self.plot_latent_space(self.model, self.trainer.datamodule.test_dataloader(), self.curr_device)
+
+    def plot_latent_space(vae_model, data_loader, device):
+        model.eval()
+        latent_vectors = []
+        labels = []
+        
+        with torch.no_grad():
+            for images, lbls in data_loader:
+                images = images.to(device)
+                # Get latent vector
+                _, _, z, _ = vae_model(images)  # Adjust this depending on your model's output
+                latent_vectors.append(z)
+                labels.append(lbls)
+        
+        latent_vectors = torch.cat(latent_vectors, 0).cpu().numpy()
+        labels = torch.cat(labels, 0).cpu().numpy()
+        
+        # Apply t-SNE
+        tsne = TSNE(n_components=2, random_state=0)
+        tsne_results = tsne.fit_transform(latent_vectors)
+        
+        # Plot
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=labels, cmap='viridis', alpha=0.5)
+        plt.colorbar(scatter)
+        plt.show()
+
         
     def sample_images(self):
         # Get sample reconstruction image            
