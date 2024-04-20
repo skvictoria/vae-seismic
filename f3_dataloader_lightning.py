@@ -6,10 +6,6 @@ from pytorch_lightning import LightningDataModule
 from torchvision import transforms
 from typing import List, Optional, Sequence, Union, Any, Callable
 
-import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader
-
 class SeismicDataset(Dataset):
     def __init__(self, data, labels, view='inline', subimage_width=64, subimage_height=64, normalize=True):
         """
@@ -19,6 +15,7 @@ class SeismicDataset(Dataset):
             view (str): 'inline' or 'crossline' view for slicing the 3D array.
             subimage_width (int): Width of the sub-images.
             subimage_height (int): Height of the sub-images.
+            normalize (bool): Whether to normalize each sub-image.
         """
         self.data = data
         self.labels = labels
@@ -39,6 +36,7 @@ class SeismicDataset(Dataset):
                 label_slice = self.labels[:, i, :].T
 
             if self.normalize:
+                # Normalization
                 view_slice = (view_slice - np.min(view_slice)) / (np.max(view_slice) - np.min(view_slice))
             
             for y in range(0, view_slice.shape[0] - self.subimage_height + 1, self.subimage_height):
@@ -53,7 +51,10 @@ class SeismicDataset(Dataset):
 
     def __getitem__(self, idx):
         data, label = self.subimages[idx]
-        return torch.tensor(data, dtype=torch.float), torch.tensor(label, dtype=torch.long)
+        # Reshape data to add a channel dimension (1, height, width)
+        data = torch.tensor(data, dtype=torch.float).unsqueeze(0)  # Add channel dimension
+        label = torch.tensor(label, dtype=torch.long).unsqueeze(0)
+        return data, label
 
 class VAEDataset(LightningDataModule):
     """
