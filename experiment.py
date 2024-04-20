@@ -23,8 +23,10 @@ class VAEXperiment(pl.LightningModule):
         self.params = params
         self.curr_device = None
         self.hold_graph = False
-        self.mean = 0
-        self.std = 0
+        self.image_sum = 0
+        self.image_sq_sum = 0
+        self.num_images = 0
+
         try:
             self.hold_graph = self.params['retain_first_backpass']
         except:
@@ -58,14 +60,6 @@ class VAEXperiment(pl.LightningModule):
                                             batch_idx = batch_idx)
 
         self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
-        # Generate images (assuming these are the segmentation results)
-        recons = self.model.generate(real_img, labels=labels).to(self.curr_device)
-        
-        # Update accumulators for mean and std calculation
-        self.image_sum += recons.sum(dim=0)
-        self.image_sq_sum += (recons ** 2).sum(dim=0)
-        self.num_images += recons.size(0)
-
         
     def on_validation_end(self) -> None:
         self.sample_images()
@@ -133,6 +127,11 @@ class VAEXperiment(pl.LightningModule):
                                            f"{self.logger.name}_Epoch_{self.current_epoch}.png"),
                               normalize=True,
                               nrow=12)
+            
+            # Update accumulators for mean and std calculation
+            self.image_sum += samples.sum(dim=0)
+            self.image_sq_sum += (samples ** 2).sum(dim=0)
+            self.num_images += samples.size(0)
         except Warning:
             pass
 
