@@ -23,6 +23,8 @@ class VAEXperiment(pl.LightningModule):
         self.params = params
         self.curr_device = None
         self.hold_graph = False
+        self.mean = 0
+        self.std = 0
         try:
             self.hold_graph = self.params['retain_first_backpass']
         except:
@@ -59,17 +61,25 @@ class VAEXperiment(pl.LightningModule):
         # Generate images (assuming these are the segmentation results)
         recons = self.model.generate(real_img, labels=labels).to(self.curr_device)
         
-        # Calculate mean and std of the generated images
-        mean = torch.mean(recons.float())
-        std = torch.std(recons.float())
-
-        # Log the computed mean and standard deviation
-        self.log('val_mean', mean, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('val_std', std, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # Update accumulators for mean and std calculation
+        self.image_sum += recons.sum(dim=0)
+        self.image_sq_sum += (recons ** 2).sum(dim=0)
+        self.num_images += recons.size(0)
 
         
     def on_validation_end(self) -> None:
         self.sample_images()
+        mean_image = self.image_sum / self.num_images
+        std_image = (self.image_sq_sum / self.num_images - mean_image ** 2).sqrt()  # variance = E[X^2] - (E[X])^2
+
+        # You can save or log these images as needed, e.g.,
+        self.logger.experiment.add_image('mean_image', mean_image, self.current_epoch)
+        self.logger.experiment.add_image('std_image', std_image, self.current_epoch)
+
+        # Optionally, you might want to clear the accumulators to free up memory
+        del self.image_sum
+        del self.image_sq_sum
+        torch.cuda.empty_cache()  # If using GPU
         self.plot_latent_space(self.model, self.trainer.datamodule.test_dataloader(), self.curr_device)
 
     def plot_latent_space(vae_model, data_loader, device):
