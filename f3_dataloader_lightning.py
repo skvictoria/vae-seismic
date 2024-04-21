@@ -17,8 +17,8 @@ class SeismicDataset(Dataset):
             subimage_height (int): Height of the sub-images.
             normalize (bool): Whether to normalize each sub-image.
         """
-        self.data = data
-        self.labels = labels
+        self.data = labels
+        self.labels = data
         self.view = view
         self.subimage_width = subimage_width
         self.subimage_height = subimage_height
@@ -37,14 +37,17 @@ class SeismicDataset(Dataset):
 
             if self.normalize:
                 # Normalization
+                #label_slice = (label_slice - np.min(label_slice)) / (np.max(label_slice) - np.min(label_slice))
                 view_slice = (view_slice - np.min(view_slice)) / (np.max(view_slice) - np.min(view_slice))
-            
+                view_slice = 2 * view_slice - 1
+
             for y in range(0, view_slice.shape[0] - self.subimage_height + 1, self.subimage_height):
                 for x in range(0, view_slice.shape[1] - self.subimage_width + 1, self.subimage_width):
                     subimage_data = view_slice[y:y+self.subimage_height, x:x+self.subimage_width]
                     subimage_label = label_slice[y:y+self.subimage_height, x:x+self.subimage_width]
                     subimages.append((subimage_data, subimage_label))
         return subimages
+
 
     def __len__(self):
         return len(self.subimages)
@@ -53,29 +56,47 @@ class SeismicDataset(Dataset):
         data, label = self.subimages[idx]
         # Reshape data to add a channel dimension (1, height, width)
         data = torch.tensor(data, dtype=torch.float).unsqueeze(0)  # Add channel dimension
-        label = torch.tensor(label, dtype=torch.long).unsqueeze(0)
+        label = torch.tensor(label, dtype=torch.float).unsqueeze(0)#float
         return data, label
 
 class VAEDataset(LightningDataModule):
-    """
-    PyTorch Lightning data module adapted for seismic data segmentation including test dataset.
-    """
     def __init__(
         self,
-        data,
-        labels,
-        train_batch_size: int = 8,
-        val_batch_size: int = 8,
-        test_batch_size: int = 8,
+        data_paths,
+        labels_paths,
+        train_batch_size: int = 64,
+        val_batch_size: int = 64,
+        test_batch_size: int = 64,
         subimage_width: int = 64,
         subimage_height: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
-        normalize: bool = True,
     ):
+        #super(VAEDataset, self).__init__()
         super().__init__()
-        self.data = data
-        self.labels = labels
+
+        # test1 = np.load('./test_once/test1_seismic.npy')
+        # test2 = np.load('./test_once/test2_seismic.npy')
+        # train = np.load('./train/train_seismic.npy')
+
+        # test1_labels = np.load('./test_once/test1_labels.npy')
+        # test2_labels = np.load('./test_once/test2_labels.npy')
+        # train_labels = np.load('./train/train_labels.npy')
+        #
+
+        test1 = np.load(data_paths[0])
+        test2 = np.load(data_paths[1])
+        train = np.load(data_paths[2])
+
+        test1_labels = np.load(labels_paths[0])
+        test2_labels = np.load(labels_paths[1])
+        train_labels = np.load(labels_paths[2])
+
+        self.data={'train': train, 'test1': test1, 'test2': test2}
+        self.labels={'train': train_labels, 'test1': test1_labels, 'test2': test2_labels}
+        #
+        #self.data = data
+        #self.labels = labels
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.test_batch_size = test_batch_size
@@ -83,22 +104,24 @@ class VAEDataset(LightningDataModule):
         self.subimage_height = subimage_height
         self.num_workers = num_workers
         self.pin_memory = pin_memory
-        self.normalize = normalize
+
+        #print(self.data[0])
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == 'fit' or stage is None:
             self.train_dataset = SeismicDataset(
                 self.data['train'], self.labels['train'], 
-                subimage_width=self.subimage_width, subimage_height=self.subimage_height, normalize = self.normalize
+            
+                subimage_width=self.subimage_width, subimage_height=self.subimage_height
             )
             self.val_dataset = SeismicDataset(
                 self.data['test1'], self.labels['test1'], 
-                subimage_width=self.subimage_width, subimage_height=self.subimage_height, normalize = self.normalize
+                subimage_width=self.subimage_width, subimage_height=self.subimage_height
             )
         if stage == 'test' or stage is None:
             self.test_dataset = SeismicDataset(
                 self.data['test2'], self.labels['test2'], 
-                subimage_width=self.subimage_width, subimage_height=self.subimage_height, normalize = self.normalize
+                subimage_width=self.subimage_width, subimage_height=self.subimage_height
             )
     
     def train_dataloader(self) -> DataLoader:
@@ -128,29 +151,27 @@ class VAEDataset(LightningDataModule):
             pin_memory=self.pin_memory,
         )
 
-# Example of setting up and using the VAEDataset
-'''test1 = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test1_seismic.npy')
-test2 = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test2_seismic.npy')
-train = np.load('D:\jupyter_notebooks\ECE6254\Project\\train\\train_seismic.npy')
+# # Example of setting up and using the VAEDataset
+# test1 = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test1_seismic.npy')
+# test2 = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test2_seismic.npy')
+# train = np.load('D:\jupyter_notebooks\ECE6254\Project\\train\\train_seismic.npy')
 
-test1_labels = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test1_labels.npy')
-test2_labels = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test2_labels.npy')
-train_labels = np.load('D:\jupyter_notebooks\ECE6254\Project\\train\\train_labels.npy')
+# test1_labels = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test1_labels.npy')
+# test2_labels = np.load('D:\jupyter_notebooks\ECE6254\Project\\test_once\\test2_labels.npy')
+# train_labels = np.load('D:\jupyter_notebooks\ECE6254\Project\\train\\train_labels.npy')
 
-# Example of setting up and using the VAEDataset
-vae_data_module = VAEDataset(
-    data={'train': train, 'test1': test1, 'test2': test2},
-    labels={'train': train_labels, 'test1': test1_labels, 'test2': test2_labels},
-    train_batch_size=16,
-    val_batch_size=16,
-    test_batch_size=16,
-    subimage_width=64,
-    subimage_height=64,
-    normalize = True
-)
+# vae_data_module = VAEDataset(
+#     data={'train': train, 'test1': test1, 'test2': test2},
+#     labels={'train': train_labels, 'test1': test1_labels, 'test2': test2_labels},
+#     train_batch_size=16,
+#     val_batch_size=16,
+#     test_batch_size=16,
+#     subimage_width=64,
+#     subimage_height=64
+# )
 
-trainer = pl.Trainer()
-trainer.fit(model, datamodule=vae_data_module)
+# trainer = pl.Trainer()
+# trainer.fit(model, datamodule=vae_data_module)
 
-trainer.validate(datamodule=vae_data_module)
-trainer.test(datamodule=vae_data_module)'''
+# trainer.validate(datamodule=vae_data_module)
+# trainer.test(datamodule=vae_data_module)'''

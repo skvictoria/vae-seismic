@@ -1,24 +1,24 @@
 import torch
 import unittest
-from cvae import *
+from models import ConditionalVAE
 
 
 class TestCVAE(unittest.TestCase):
 
     def setUp(self) -> None:
         # self.model2 = VAE(3, 10)
-        self.model = ConditionalVAE(1, 64*64, 128)
+        self.model = ConditionalVAE(1, condition_dimension = 64*64, latent_dim = 128)
 
     def test_forward(self):
-        x = torch.randn(16, 1, 64, 64)
-        c = torch.randn(16, 64 * 64)
+        x = torch.randn(64, 1, 64, 64)
+        c = torch.randn(64, 1, 64, 64)
         y = self.model(x, c)
         print("Model Output size:", y[0].size())
         # print("Model2 Output size:", self.model2(x)[0].size())
 
     def test_loss(self):
-        x = torch.randn(16, 1, 64, 64)
-        c = torch.randn(16, 64 * 64)
+        x = torch.randn(64, 1, 64, 64)
+        c = torch.randn(64, 1, 64, 64)
         result = self.model(x, y = c)
         loss = self.model.loss_function(*result, M_N = 0.005)
         print(loss)
