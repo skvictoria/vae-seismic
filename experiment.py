@@ -11,16 +11,35 @@ import torchvision.utils as vutils
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+from models import *
+import yaml
+import argparse
 
 class VAEXperiment(pl.LightningModule):
 
     def __init__(self,
-                 vae_model: BaseVAE,
-                 params: dict) -> None:
+                 vae_model: BaseVAE=None,
+                 params: dict=None) -> None:
         super(VAEXperiment, self).__init__()
 
-        self.model = vae_model
-        self.params = params
+        # self.model = vae_model
+        # self.params = params
+        parser = argparse.ArgumentParser(description='Generic runner for VAE models')
+        parser.add_argument('--config',  '-c',
+                            dest="filename",
+                            metavar='FILE',
+                            help =  'path to the config file',
+                            default='configs/cvae.yaml')
+
+        args = parser.parse_args()
+        with open(args.filename, 'r') as file:
+            try:
+                config = yaml.safe_load(file)
+            except yaml.YAMLError as exc:
+                print(exc)
+
+        self.model = vae_models[config['model_params']['name']](**config['model_params'])
+        self.params = config['exp_params']
         self.curr_device = None
         self.hold_graph = False
         self.image_sum = 0
@@ -63,7 +82,7 @@ class VAEXperiment(pl.LightningModule):
                                             M_N = 1.0, #real_img.shape[0]/ self.num_val_imgs,
                                             #optimizer_idx = optimizer_idx,
                                             batch_idx = batch_idx)
-         # Manual optimization
+        # Manual optimization
         #self.manual_backward(val_loss['loss'])  # Backward pass
         #self.optimizers().step()  # Optimizer step
         #self.optimizers().zero_grad()  # Zero gradients
@@ -124,6 +143,23 @@ class VAEXperiment(pl.LightningModule):
         scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=labels, cmap='viridis', alpha=0.5)
         plt.colorbar(scatter)
         plt.show()
+
+    def sample_one_image(self):
+        test_input, test_label = next(iter(self.trainer.datamodule.test_dataloader()))
+        test_input = test_input.to(self.curr_device)
+        test_label = test_label.to(self.curr_device).float()
+
+        # Convert to numpy for plotting
+        # Select the first image in the batch for simplicity
+        image_to_plot = test_input[0].cpu().detach().permute(1, 2, 0).numpy()
+        plt.imshow(image_to_plot, interpolation='nearest')
+        plt.title("Sample Test Input")
+        plt.colorbar()
+        plt.axis('off')
+        plot_save_path = os.path.join(self.logger.log_dir, "evaluation_plot", f"test_input_epoch_{self.current_epoch}.png")
+        os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)  # Create directory if it doesn't exist
+        plt.savefig(plot_save_path)
+        plt.close()
         
     def sample_images(self):
         # Get sample reconstruction image            

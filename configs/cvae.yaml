@@ -2,7 +2,7 @@ model_params:
   name: 'ConditionalVAE'
   in_channels: 1
   num_classes: 40
-  latent_dim: 128
+  latent_dim: 1024
 
 data_params:
   data_paths: ['./test_once/test1_seismic.npy', './test_once/test2_seismic.npy', './train/train_seismic.npy']

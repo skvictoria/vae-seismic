@@ -10,19 +10,28 @@ class ConditionalVAE(BaseVAE):
                  in_channels: int,
                  latent_dim: int,
                  hidden_dims = None,
-                 condition_dimension: int = 256,#64*64, # 64x64 image
-                 img_size:int = 64,
+                 condition_dimension: int = 1024,#64*64, # 64x64 image
+                 img_size:int = 128,
                  **kwargs):
         super(ConditionalVAE, self).__init__()
 
         self.latent_dim = latent_dim
         self.img_size = img_size
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, stride=1, padding=1)
-        self.pool1 = nn.MaxPool2d(kernel_size=4, stride=4, padding=0)  # Reduces 64x64 to 16x16
+        if True:
+            self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, stride=1, padding=1)
+            self.pool1 = nn.MaxPool2d(kernel_size=4, stride=4, padding=0)  # Reduces 64x64 to 16x16
         
-        # Second Convolution Block
-        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, stride=1, padding=1)
-        self.pool2 = nn.MaxPool2d(kernel_size=4, stride=4, padding=0)  # Reduces 16x16 to 4x4
+            # Second Convolution Block
+            self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, stride=1, padding=1)
+            self.pool2 = nn.MaxPool2d(kernel_size=4, stride=4, padding=0)  # Reduces 16x16 to 4x4
+        else:
+            self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, stride=1, padding=1)
+            self.pool1 = nn.MaxPool2d(kernel_size=4, stride=4, padding=0)  # Reduces 128x128 to 32x32
+
+            # Second Convolution Block
+            self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, stride=1, padding=1)
+            self.pool2 = nn.MaxPool2d(kernel_size=8, stride=8, padding=0)  # Reduces 32x32 to 4x4
+
 
         # self.embed_condition = nn.Linear(condition_dimension, img_size * img_size)
         self.embed_condition = nn.Conv2d(in_channels, in_channels, kernel_size=1)
@@ -45,8 +54,8 @@ class ConditionalVAE(BaseVAE):
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1]*4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1]*4, latent_dim)
+        self.fc_mu = nn.Linear(hidden_dims[-1]*16, latent_dim)
+        self.fc_var = nn.Linear(hidden_dims[-1]*16, latent_dim)
 
 
         # Build Decoder
@@ -81,10 +90,31 @@ class ConditionalVAE(BaseVAE):
                                                padding=1,
                                                output_padding=1),
                             nn.BatchNorm2d(hidden_dims[-1]),
+                            nn.ConvTranspose2d(hidden_dims[-1],
+                                               hidden_dims[-1],
+                                               kernel_size=3,
+                                               stride=2,
+                                               padding=1,
+                                               output_padding=1),
+                            nn.BatchNorm2d(hidden_dims[-1]),
                             nn.LeakyReLU(),
                             nn.Conv2d(hidden_dims[-1], out_channels= 1,
                                       kernel_size= 3, padding= 1),
                             nn.Tanh())
+        
+        # self.final_layer = nn.Sequential(
+        #     nn.ConvTranspose2d(hidden_dims[-1],
+        #                        hidden_dims[-1],
+        #                        kernel_size=4,  # Adjusted the kernel size
+        #                        stride=2,
+        #                        padding=1,
+        #                        output_padding=0),  # Adjusted output padding
+        #     nn.BatchNorm2d(hidden_dims[-1]),
+        #     nn.LeakyReLU(),
+        #     nn.Conv2d(hidden_dims[-1], out_channels=1,
+        #               kernel_size=3, padding=1),
+        #     nn.Tanh()
+        # )
 
     def encode(self, input):
         """

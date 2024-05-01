@@ -7,7 +7,7 @@ from torchvision import transforms
 from typing import List, Optional, Sequence, Union, Any, Callable
 
 class SeismicDataset(Dataset):
-    def __init__(self, data, labels, view='inline', subimage_width=64, subimage_height=64, normalize=True):
+    def __init__(self, data, labels, view='inline', subimage_width=128, subimage_height=128, normalize=True):
         """
         Args:
             data (np.array): 3D array of seismic data.
@@ -67,8 +67,8 @@ class VAEDataset(LightningDataModule):
         train_batch_size: int = 64,
         val_batch_size: int = 64,
         test_batch_size: int = 64,
-        subimage_width: int = 64,
-        subimage_height: int = 64,
+        subimage_width: int = 128,
+        subimage_height: int = 128,
         num_workers: int = 0,
         pin_memory: bool = False,
     ):

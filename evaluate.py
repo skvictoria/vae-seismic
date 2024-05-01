@@ -12,6 +12,7 @@ from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from f3_dataloader_lightning import VAEDataset
 from pytorch_lightning.strategies import DDPStrategy
+import pytorch_lightning as pl
 
 from models import *  # Assuming this includes your model classes
 
@@ -29,15 +30,33 @@ with open(args.filename, 'r') as file:
     except yaml.YAMLError as exc:
         print(exc)
 
+tb_logger =  TensorBoardLogger(save_dir=config['logging_params']['save_dir'],
+                               name=config['model_params']['name'],)
+
+# For reproducibility
+seed_everything(config['exp_params']['manual_seed'], True)
+
+model = vae_models[config['model_params']['name']](**config['model_params'])
+experiment = VAEXperiment(model,
+                          config['exp_params'])
+
+
+trainer = pl.Trainer()
+trainer.test(datamodule=data)
+
 # Path to your `.ckpt` file
 checkpoint_path = 'logs/ConditionalVAE/version_74/checkpoints/last.ckpt'
 
 # Load the model
-model = VAEXperiment.load_from_checkpoint(checkpoint_path)
+#model = vae_models[config['model_params']['name']](**config['model_params'])
+#experiment = VAEXperiment(model,config['exp_params']).load_from_checkpoint(checkpoint_path)
+
+experiment = VAEXperiment.load_from_checkpoint(checkpoint_path)
 
 # Example: Using the model for inference
-model.eval()
-# Assuming a dummy input tensor
-input_tensor = torch.randn((64, 1, 64, 64))  # Adjust the size based on your model's expected input
-with torch.no_grad():
-    output = model(input_tensor)
+experiment.eval()
+experiment.sample_one_image()
+# # Assuming a dummy input tensor
+# input_tensor = torch.randn((64, 1, 64, 64))  # Adjust the size based on your model's expected input
+# with torch.no_grad():
+#     output = model(input_tensor)
